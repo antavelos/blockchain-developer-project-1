@@ -16,11 +16,20 @@ class Block {
 
     // Constructor - argument data will be the object containing the transaction data
 	constructor(data){
-		this.hash = null;                                           // Hash of the block
-		this.height = 0;                                            // Block Height (consecutive number of each block)
+		this.hash = null;                                                // Hash of the block
+		this.height = 0;                                                 // Block Height (consecutive number of each block)
 		this.body = Buffer.from(JSON.stringify(data)).toString('hex');   // Will contain the transactions stored in the block, by default it will encode the data
-		this.time = 0;                                              // Timestamp for the Block creation
-		this.previousBlockHash = null;                              // Reference to the previous Block Hash
+		this.time = 0;                                                   // Timestamp for the Block creation
+		this.previousBlockHash = null;                                   // Reference to the previous Block Hash
+    }
+
+    calculateHash() {
+        return SHA256(JSON.stringify({
+            height: this.height,
+            body: this.body,
+            time: this.time,
+            previousBlockHash: this.previousBlockHash
+        })).toString();
     }
 
     /**
@@ -38,20 +47,7 @@ class Block {
     validate() {
         let self = this;
         return new Promise((resolve, reject) => {
-            // Save in auxiliary variable the current block hash
-
-            // Recalculate the hash of the Block
-            // Comparing if the hashes changed
-            // Returning the Block is not valid
-
-            // Returning the Block is valid
-            let hash = SHA256(JSON.stringify(self)).toString();
-
-            if (self.hash != hash) {
-                reject("Block is not valid");
-            } else {
-                resolve("Block is valid");
-            }
+            resolve(self.calculateHash() == self.hash);
         });
     }
 
@@ -65,11 +61,6 @@ class Block {
      *     or Reject with an error.
      */
     getBData() {
-        // Getting the encoded data saved in the Block
-        // Decoding the data to retrieve the JSON representation of the object
-        // Parse the data to an object to be retrieve.
-
-        // Resolve with the data if the object isn't the Genesis block
         let self = this;
         return new Promise((resolve, reject) => {
             let bdata = JSON.parse(hex2ascii(self.body))

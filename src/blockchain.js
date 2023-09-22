@@ -8,7 +8,6 @@
  *
  */
 
-const SHA256 = require('crypto-js/sha256');
 const BlockClass = require('./block.js');
 const bitcoinMessage = require('bitcoinjs-message');
 
@@ -73,11 +72,11 @@ class Blockchain {
                     block.previousBlockHash = self.chain[block.height - 1].hash;
                 }
                 block.time = getCurrentTimestampStr();
-                block.hash = SHA256(JSON.stringify(block)).toString();
+                block.hash = block.calculateHash();
               
                 self.chain.push(block);
                 self.height += 1;
-              
+
                 resolve(block);
             } catch(error) {
                 reject(error);
@@ -135,10 +134,16 @@ class Blockchain {
                         "star": star,
                     });
                     self._addBlock(block)
-                    resolve(block);
+                        .then(() => self.validateChain())
+                        .then(errors => {
+                            if (errors.length > 0)
+                                reject(new Error(`chain validation failed: ${errors.join(', ')}`));
+
+                            resolve(block);
+                        })
                 }
             } catch(error) {
-                reject(`failed to add block: ${error.message}`);
+                reject(`failed to add block: ${error}`);
             }
         });
     }
@@ -153,12 +158,8 @@ class Blockchain {
         let self = this;
         return new Promise((resolve, reject) => {
             let block = self.chain.filter((b) => b.hash == hash)[0];
-            console.log(block);
-            if(block){
-                resolve(block);
-            } else {
-                resolve(null);
-            }
+
+            resolve(block || null);
         });
     }
 
@@ -166,16 +167,13 @@ class Blockchain {
      * This method will return a Promise that will resolve with the Block object
      * with the height equal to the parameter `height`
      * @param {*} height
-     */
-    getBlockByHeight(height) {
-        let self = this;
-        return new Promise((resolve, reject) => {
-            let block = self.chain.filter(p => p.height === height)[0];
-            if(block){
-                resolve(block);
-            } else {
-                resolve(null);
-            }
+    */
+   getBlockByHeight(height) {
+       let self = this;
+       return new Promise((resolve, reject) => {
+           let block = self.chain.filter(p => p.height === height)[0];
+
+           resolve(block || null);
         });
     }
 
@@ -217,17 +215,14 @@ class Blockchain {
         let errorLog = [];
         return new Promise(async (resolve, reject) => {
             for (let i = 1; i <= self.height; i++) {
-                self.chain[i].validate()
-                    .then((res) => {
-                        if (self.chain[i].previousBlockHash != self.chain[i - 1].hash) {
-                            errorLog.push(
-                                new Error(
-                                    `block ${self.chain[i].height} prevousBlockHash does not match with block ${self.chain[i - 1].height} hash`));
-                        }
-                    })
-                    .catch(error => {
-                        errorLog.push(new Error(`block ${self.chain[i].height} is invalid: ${error.message}`));
-                    });
+                let isValid = await self.chain[i].validate();
+
+                if (!isValid) {
+                    errorLog.push(`block ${i}: hash mismatch`)
+                }
+                if (self.chain[i].previousBlockHash != self.chain[i - 1].hash) {
+                    errorLog.push(`block ${i}: previousBlockHash mismatch`)
+                }
             }
             resolve(errorLog);
         });

@@ -70,7 +70,6 @@ class BlockchainController {
                             return res.status(500).send({"error": error.message});
                         });
                 } catch (error) {
-                    console.error(error);
                     return res.status(500).send(error);
                 }
             } else {
